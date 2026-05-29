@@ -2,8 +2,11 @@
 
 ## 目录
 - [Problem 3: Longest Substring Without Repeating](#problem-3-longest-substring-without-repeating-characters-无重复字符的最长子串)
+- [Problem 5: Longest Palindromic Substring](#problem-5-longest-palindromic-substring-最长回文子串)
 - [Problem 14: Longest Common Prefix](#problem-14-longest-common-prefix-最长公共前缀)
 - [Problem 28: Implement strStr](#problem-28-implement-strstr-implement-strstr)
+- [Problem 43: Multiply Strings](#problem-43-multiply-strings-字符串相乘)
+- [Problem 49: Group Anagrams](#problem-49-group-anagrams-字母异位词分组)
 
 ---
 
@@ -434,6 +437,296 @@ func computeLPS(pattern string) []int {
 
 ---
 
+## Problem 5: Longest Palindromic Substring 最长回文子串
+
+### 1. 题目核心与隐藏考点
+
+**核心本质**: 中心扩展法，从每个可能的中心向外扩展，记录最长回文。
+
+**隐藏考点**:
+- 奇数长度 vs 偶数长度回文的不同处理
+- 为什么中心扩展比动态规划更好？
+
+```
+中心扩展图解:
+
+s = "babad"
+
+情况1: 奇数长度回文 "bab"
+       中心在索引 1
+
+情况2: 偶数长度回文 "aba"
+       中心在索引 1 和 2 之间
+
+扩展过程:
+  i=1, "bab" → 长度 3
+  i=2, "aba" → 长度 3
+
+最终: "bab" 或 "aba" (都是最长回文)
+```
+
+---
+
+### 2. 工业级 Go 源码与详细注释
+
+```go
+package strings
+
+// LongestPalindrome 最长回文子串
+//
+// 核心思想：中心扩展法
+//
+// 为什么不用 DP？
+// - DP 需要 O(n²) 空间
+// - 中心扩展只需要 O(1) 空间
+// - 中心扩展更容易理解和实现
+//
+// 算法步骤：
+// 1. 遍历每个可能的中心位置
+// 2. 对于每个中心，分别处理奇数和偶数长度的情况
+// 3. 向外扩展直到不匹配
+// 4. 记录最长的回文
+//
+// 时间复杂度：O(n²)
+// 空间复杂度：O(1)
+func LongestPalindrome(s string) string {
+    if len(s) <= 1 {
+        return s
+    }
+
+    start, end := 0, 0
+
+    for i := 0; i < len(s); i++ {
+        // 奇数长度：以 i 为中心
+        len1 := expandAroundCenter(s, i, i)
+        // 偶数长度：以 i 和 i+1 为中心
+        len2 := expandAroundCenter(s, i, i+1)
+
+        // 取较长的回文
+        maxLen := len1
+        if len2 > maxLen {
+            maxLen = len2
+        }
+
+        // 如果找到更长的回文，更新起始和结束位置
+        if maxLen > end-start+1 {
+            start = i - (maxLen-1)/2
+            end = i + maxLen/2
+        }
+    }
+
+    return s[start : end+1]
+}
+
+// expandAroundCenter 从中心向外扩展，返回最大回文长度
+func expandAroundCenter(s string, left, right int) int {
+    for left >= 0 && right < len(s) && s[left] == s[right] {
+        left--
+        right++
+    }
+    return right - left - 1
+}
+```
+
+---
+
+## Problem 43: Multiply Strings 字符串相乘
+
+### 1. 题目核心与隐藏考点
+
+**核心本质**: 模拟竖式乘法，从低位到高位逐位相乘，结果逆序存储。
+
+**隐藏考点**:
+- 大数乘法，不能直接用数字
+- 结果数组逆序存储的原因
+- 进位的处理
+
+```
+竖式乘法图解:
+
+num1 = "123", num2 = "456"
+
+    1 2 3
+  × 4 5 6
+  ───────
+    7 3 8   (123 × 6)
+   6 1 5    (123 × 5, 左移一位)
+  4 9 2     (123 × 4, 左移两位)
+  ───────
+  5 6 0 8 8
+
+逆序存储: [8, 8, 0, 5, 6] → "56088"
+
+每个位置的结果:
+- pos 0: 3×6 = 18, 进位 1, 结果 8
+- pos 1: 2×6 + 3×5 + 1 = 20, 进位 2, 结果 0
+- pos 2: 1×6 + 2×5 + 3×4 + 2 = 6+10+12+2 = 30, 进位 3, 结果 0
+- pos 3: 1×5 + 2×4 + 3 = 5+8+3 = 16, 进位 1, 结果 6
+- pos 4: 1×4 + 1 = 5, 进位 0, 结果 5
+
+结果逆序: 5, 6, 0, 8, 8 → "56088"
+```
+
+---
+
+### 2. 工业级 Go 源码与详细注释
+
+```go
+// Multiply 字符串相乘
+//
+// 核心思想：模拟竖式乘法
+//
+// 为什么不能用数字直接相乘？
+// - 输入可能是很大的数（如 100 位）
+// - 超过 int64 范围，无法用普通数字存储
+// - 需要用字符串模拟乘法
+//
+// 算法步骤：
+// 1. 从低位到高位逐位相乘
+// 2. 结果存储在数组中，索引代表位置（逆序）
+// 3. 每个位置存储当前位的累加值（可能 > 10）
+// 4. 最后统一处理进位
+// 5. 转为字符串（注意去除前导零）
+//
+// 关键点：
+// - 结果数组长度 = len(num1) + len(num2)
+// - num1[i] × num2[j] 的结果影响 pos = i + j 和 i + j + 1
+// - 最终需要逆序输出
+//
+// 时间复杂度：O(m × n)
+// 空间复杂度：O(m + n)
+func Multiply(num1 string, num2 string) string {
+    // 处理特殊情况
+    if num1 == "0" || num2 == "0" {
+        return "0"
+    }
+
+    m, n := len(num1), len(num2)
+    // 结果数组，长度为 m+n（最大可能长度）
+    result := make([]int, m+n)
+
+    // 从低位到高位逐位相乘
+    for i := m - 1; i >= 0; i-- {
+        for j := n - 1; j >= 0; j-- {
+            // 相乘
+            mul := (num1[i] - '0') * (num2[j] - '0')
+            // 加上之前的结果（可能有进位）
+            p1, p2 := i+j, i+j+1
+            sum := mul + result[p2]
+
+            result[p2] = sum % 10
+            result[p1] += sum / 10
+        }
+    }
+
+    // 转为字符串，跳过前导零
+    resultStr := ""
+    for _, v := range result {
+        if !(len(resultStr) == 0 && v == 0) {
+            resultStr += string(rune(v + '0'))
+        }
+    }
+
+    if resultStr == "" {
+        return "0"
+    }
+    return resultStr
+}
+```
+
+---
+
+## Problem 49: Group Anagrams 字母异位词分组
+
+### 1. 题目核心与隐藏考点
+
+**核心本质**: 哈希表分组，key 是排序后的字符串。
+
+**隐藏考点**:
+- 如何判断字母异位词？
+- 排序 vs 计数哪种方式更好？
+
+```
+哈希表分组图解:
+
+strs = ["eat", "tea", "tan", "ate", "nat", "bat"]
+
+排序后的 key:
+  "eat" → "aet"
+  "tea" → "aet"
+  "tan" → "ant"
+  "ate" → "aet"
+  "nat" → "ant"
+  "bat" → "abt"
+
+哈希表:
+  "aet" → ["eat", "tea", "ate"]
+  "ant" → ["tan", "nat"]
+  "abt" → ["bat"]
+
+结果:
+  [["eat","tea","ate"], ["tan","nat"], ["bat"]]
+```
+
+---
+
+### 2. 工业级 Go 源码与详细注释
+
+```go
+package strings
+
+import (
+    "sort"
+)
+
+// GroupAnagrams 字母异位词分组
+//
+// 核心思想：哈希表
+//
+// 关键 insight：
+// - 字母异位词排序后相同
+// - 因此可以用排序后的字符串作为 key
+// - 将所有字母异位词归到同一组
+//
+// 算法步骤：
+// 1. 创建哈希表，key 是排序后的字符串，value 是字符串数组
+// 2. 遍历每个字符串
+// 3. 将字符串排序，得到 key
+// 4. 将原字符串加入 key 对应的组
+// 5. 将哈希表的值转为二维数组返回
+//
+// 时间复杂度：O(n × k log k) - n 是字符串个数，k 是平均长度
+// 空间复杂度：O(n × k)
+func GroupAnagrams(strs []string) [][]string {
+    // 哈希表：key = 排序后的字符串，value = 同一组的所有字符串
+    groups := make(map[string][]string)
+
+    for _, s := range strs {
+        // 将字符串转为字符数组
+        chars := []byte(s)
+        // 排序
+        sort.Slice(chars, func(i, j int) bool {
+            return chars[i] < chars[j]
+        })
+        // 排序后的字符串作为 key
+        key := string(chars)
+
+        // 加入对应组
+        groups[key] = append(groups[key], s)
+    }
+
+    // 将哈希表的值转为二维数组
+    result := make([][]string, 0, len(groups))
+    for _, group := range groups {
+        result = append(result, group)
+    }
+
+    return result
+}
+```
+
+---
+
 ## 举一反三
 
 | 相似题目 | 核心思想 | 难度 |
@@ -452,6 +745,9 @@ func computeLPS(pattern string) []int {
 | 滑动窗口 | 3 | 收缩+扩展 |
 | 字符串匹配 | 28 | KMP |
 | 前缀处理 | 14 | 逐字符比较 |
+| 中心扩展 | 5 | 回文检测 |
+| 大数乘法 | 43 | 竖式模拟 |
+| 哈希分组 | 49 | 排序 key |
 
 ---
 

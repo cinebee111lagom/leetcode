@@ -782,9 +782,164 @@ func SortColors(nums []int) {
 
 ---
 
-## 更多题目
+### 3. 举一反三
 
-（后续会继续补充 Problem 27, 35, 80 等题目）
+| 相似题目 | 核心思想 | 难度 |
+| :--- | :--- | :--- |
+| [Sort List](https://leetcode.com/problems/sort-list/) | 三路划分 | Medium |
+| [75. Sort Colors](https://leetcode.com/problems/sort-colors/) | 同本题 | Medium |
+
+---
+
+## Problem 27: Remove Element 移除元素
+
+### 1. 题目核心与隐藏考点
+
+**核心本质**: 快慢指针，快指针遍历数组，遇到不等于 val 的元素就复制到慢指针位置。
+
+**隐藏考点**:
+- 与 Problem 26 的区别：不需要保留每个元素最多出现两次的限制
+- 可以不使用额外空间
+
+```
+双指针图解:
+
+nums = [3, 2, 2, 3], val = 3
+
+Step 1: i=0, nums[0]=3 == val, skip
+Step 2: i=1, nums[1]=2 != val, nums[count]=2, count=1
+Step 3: i=2, nums[2]=2 != val, nums[count]=2, count=2
+Step 4: i=3, nums[3]=3 == val, skip
+
+结果: count=2, nums=[2, 2, 2, 3] (前两个是有效元素)
+```
+
+---
+
+### 2. 工业级 Go 源码与详细注释
+
+```go
+// Package arrays - LeetCode Problem 27: Remove Element
+// Given an array nums and a value val, remove all instances of val in-place and return the new length.
+package arrays
+
+// RemoveElement 移除所有值为 val 的元素
+//
+// 核心思想：快慢指针
+// - 快指针 i 遍历整个数组
+// - 慢指针 count 指向下一个应该存放非 val 元素的位置
+// - 当 nums[i] != val 时，复制到 nums[count]，count++
+//
+// 与 RemoveDuplicates 的区别：
+// - RemoveDuplicates 需要判断「重复」，需要知道前一个不重复元素是什么
+// - RemoveElement 只需要判断「是否等于 val」，更简单
+//
+// 时间复杂度：O(n)
+// 空间复杂度：O(1)
+func RemoveElement(nums []int, val int) int {
+    count := 0
+
+    for i := 0; i < len(nums); i++ {
+        if nums[i] != val {
+            nums[count] = nums[i]
+            count++
+        }
+    }
+
+    return count
+}
+```
+
+---
+
+## Problem 80: Remove Duplicates from Sorted Array II 移除排序数组中的重复项 II
+
+### 1. 题目核心与隐藏考点
+
+**核心本质**: 快慢指针，允许每个元素最多出现两次。
+
+**隐藏考点**:
+- 与 Problem 26 的区别：Problem 26 只允许出现一次，这里允许出现两次
+- 如何判断「已经是第二次」？
+
+```
+双指针图解:
+
+nums = [1, 1, 1, 2, 2, 3]
+
+Step 1: i=0, unique=0, nums[0]=1
+Step 2: i=1, nums[1]=1 != nums[unique]=1? 错，相等
+        unique=0
+Step 3: i=2, nums[2]=1 == nums[unique]=1? 是
+        但 unique=0, count? 不对...
+
+实际上:
+  unique 指向「已确认的最后一个不重复元素」的位置
+  检查 nums[i] 是否等于 nums[unique-1]（如果 unique >= 1）
+
+  i=0: nums[0]=1, unique=0, 第一个元素直接保留
+       unique=1
+
+  i=1: nums[1]=1, unique=1, nums[1] == nums[0]? 是
+       这是第二次重复，跳过
+       unique 仍是 1
+
+  i=2: nums[2]=1, unique=1, nums[2] == nums[0]? 是
+       跳过
+
+  i=3: nums[3]=2, unique=1, nums[3] != nums[0]? 是
+       nums[unique]=nums[3] → nums[1]=2
+       unique=2
+
+  ... 继续
+
+结果: unique=5，前 5 个元素 [1, 1, 2, 2, 3] 是去重后的
+```
+
+---
+
+### 2. 工业级 Go 源码与详细注释
+
+```go
+// Package arrays - LeetCode Problem 80: Remove Duplicates from Sorted Array II
+// Given a sorted array, remove duplicates in-place such that each element appears at most twice.
+package arrays
+
+// RemoveDuplicatesII 移除重复元素，允许每个元素最多出现两次
+//
+// 核心思想：快慢指针 + 计数器
+//
+// 与 RemoveDuplicates 的区别：
+// - RemoveDuplicates：每个元素只能出现一次
+// - RemoveDuplicatesII：每个元素最多出现两次
+//
+// 为什么需要 unique-2 而不是 unique-1？
+// - unique-1 是上一个确认的元素
+// - unique-2 是上上一个确认的元素（如果存在）
+// - 如果 nums[i] == nums[unique-2]，说明已经出现过两次了
+//
+// 时间复杂度：O(n)
+// 空间复杂度：O(1)
+func RemoveDuplicatesII(nums []int) int {
+    if len(nums) <= 2 {
+        return len(nums)
+    }
+
+    unique := 2
+
+    for i := 2; i < len(nums); i++ {
+        // 如果 nums[i] 与 nums[unique-2] 不同，说明可以保留
+        // 因为 unique-2 是「倒数第二个不重复元素」
+        // 这种情况意味着 nums[i] 最多是第二次出现
+        if nums[i] != nums[unique-2] {
+            nums[unique] = nums[i]
+            unique++
+        }
+    }
+
+    return unique
+}
+```
 
 ---
 

@@ -3,7 +3,10 @@
 ## 目录
 - [Problem 17: Letter Combinations](#problem-17-letter-combinations-of-phone-number-电话号码的字母组合)
 - [Problem 22: Generate Parentheses](#problem-22-generate-parentheses-括号生成)
+- [Problem 39: Combination Sum](#problem-39-combination-sum-组合总和)
+- [Problem 46: Permutations](#problem-46-permutations-全排列)
 - [Problem 79: Word Search](#problem-79-word-search-单词搜索)
+- [Problem 93: Restore IP Addresses](#problem-93-restore-ip-addresses-复原-ip-地址)
 
 ---
 
@@ -217,6 +220,321 @@ func GenerateParenthesis(n int) []string {
 
 ---
 
+## Problem 39: Combination Sum 组合总和
+
+### 1. 题目核心与隐藏考点
+
+**核心本质**: 回溯 + 剪枝，从 candidates 中找出和为 target 的组合，元素可以重复使用。
+
+**隐藏考点**:
+- 元素可以重复使用，所以递归时 start 不变
+- 需要剪枝避免重复组合（如 [2,2,3] 和 [2,3,2]）
+- 排序的作用
+
+```
+回溯树图解:
+
+candidates = [2, 3, 6, 7], target = 7
+
+从 index 0 开始:
+  []
+ / | \
+2  3  6  7
+|  |
+4  5 (超出 target，剪枝)
+
+展开:
+  [] → [2] → [2,2] → [2,2,2] (超出)
+                → [2,2,3] → [2,2,3,2] (超出)
+                → [2,2,6] (超出)
+           → [2,3] → [2,3,3] (超出)
+                  → [2,3,6] (超出)
+           → [2,6] (超出)
+  [] → [3] → [3,3] → [3,3,3] (超出)
+                → [3,3,6] (超出)
+           → [3,6] (超出)
+  [] → [7] → 找到一组 [7]
+
+结果: [[2,2,3], [7]]
+```
+
+---
+
+### 2. 工业级 Go 源码与详细注释
+
+```go
+// CombinationSum 组合总和
+//
+// 核心思想：回溯 + 剪枝
+//
+// 为什么需要排序？
+// - 排序后可以提前剪枝
+// - 当 current sum 加上当前元素超过 target 时，后面的更大元素也不用尝试
+//
+// 为什么 start 不变？
+// - 元素可以重复使用
+// - 所以递归时 start = i 而不是 i+1
+//
+// 剪枝策略：
+// - 如果 current sum 已经超过 target，停止递归
+//
+// 时间复杂度：O(n * 2^n)
+// 空间复杂度：O(target / min(candidates))
+func CombinationSum(candidates []int, target int) [][]int {
+    var result [][]int
+
+    // 排序以便剪枝
+    sort.Ints(candidates)
+
+    // 回溯函数
+    var backtrack func(start int, current []int, sum int)
+    backtrack = func(start int, current []int, sum int) {
+        // 找到目标和
+        if sum == target {
+            // 复制当前组合到结果
+            tmp := make([]int, len(current))
+            copy(tmp, current)
+            result = append(result, tmp)
+            return
+        }
+
+        // 遍历候选元素
+        for i := start; i < len(candidates); i++ {
+            // 剪枝：如果 sum 加上当前元素超过 target，后面的更大元素也不用尝试
+            if sum+candidates[i] > target {
+                break
+            }
+
+            // 做选择
+            current = append(current, candidates[i])
+            // 递归，注意 start 不变因为元素可以重复使用
+            backtrack(i, current, sum+candidates[i])
+            // 撤销选择
+            current = current[:len(current)-1]
+        }
+    }
+
+    backtrack(0, []int{}, 0)
+    return result
+}
+```
+
+---
+
+## Problem 46: Permutations 全排列
+
+### 1. 题目核心与隐藏考点
+
+**核心本质**: 回溯遍历所有排列，用 used 数组标记已使用的元素。
+
+**隐藏考点**:
+- 如何避免重复使用元素？
+- 为什么需要 used 数组？
+- 回溯时撤销选择
+
+```
+回溯树图解:
+
+nums = [1, 2, 3]
+
+[] → [1] → [1,2] → [1,2,3] ✓
+             → [1,3,2] ✓
+       → [1,3] → [1,3,2] ✓
+                 → [1,3,1]? 不对，已经用过 1
+
+实际上:
+  used = [F,F,F]
+  从 [] 开始:
+    选 1: used[1]=T, path=[1]
+    从 [1] 开始:
+      选 2: used[2]=T, path=[1,2]
+      从 [1,2] 开始:
+        选 3: used[3]=T, path=[1,2,3] → 添加结果
+      回溯: used[3]=F
+    回溯: used[2]=F
+    从 [1] 开始:
+      选 3: used[3]=T, path=[1,3]
+      ...
+
+结果: [[1,2,3], [1,3,2], [2,1,3], [2,3,1], [3,1,2], [3,2,1]]
+```
+
+---
+
+### 2. 工业级 Go 源码与详细注释
+
+```go
+// Permute 全排列
+//
+// 核心思想：回溯 + used 数组
+//
+// 为什么需要 used 数组？
+// - 标记已经使用过的元素
+// - 确保每个元素在排列中只出现一次
+//
+// 算法步骤：
+// 1. 创建一个 used 数组标记哪些元素已被使用
+// 2. 从空排列开始，逐个选择未使用的元素
+// 3. 选中的元素标记为已使用
+// 4. 递归处理下一个位置
+// 5. 回溯时撤销选择
+//
+// 时间复杂度：O(n × n!)
+// 空间复杂度：O(n)
+func Permute(nums []int) [][]int {
+    var result [][]int
+    used := make([]bool, len(nums))
+    path := []int{}
+
+    var backtrack func()
+    backtrack = func() {
+        // 找到一个完整排列
+        if len(path) == len(nums) {
+            tmp := make([]int, len(path))
+            copy(tmp, path)
+            result = append(result, tmp)
+            return
+        }
+
+        // 遍历所有可能的选择
+        for i := 0; i < len(nums); i++ {
+            // 如果元素已被使用，跳过
+            if used[i] {
+                continue
+            }
+
+            // 做选择
+            used[i] = true
+            path = append(path, nums[i])
+
+            // 递归
+            backtrack()
+
+            // 撤销选择
+            path = path[:len(path)-1]
+            used[i] = false
+        }
+    }
+
+    backtrack()
+    return result
+}
+```
+
+---
+
+## Problem 93: Restore IP Addresses 复原 IP 地址
+
+### 1. 题目核心与隐藏考点
+
+**核心本质**: 回溯 + 剪枝，将字符串分割成有效的 IP 地址段。
+
+**隐藏考点**:
+- IP 地址每段必须是 0-255
+- 不能有前导零（除非是 "0" 本身）
+- 恰好 4 段
+
+```
+回溯分割图解:
+
+s = "25525511135"
+
+分割过程:
+  [] → [2] → [2,5] → [2,5,5] → [2,5,5,2] ✓
+                       → [2,5,5,5]? 5+5+5 > 9? 不是...
+                       → [2,5,5,11]? 11 > 255? 超范围
+
+  更清楚地说:
+  - 第一段可以是 2, 25, 255, 2552(太长)
+  - 如果选 255，第二段可以是 2, 25, 255, ...
+  - 以此类推
+
+最终结果: ["255.255.11.135", "255.255.111.35"]
+```
+
+---
+
+### 2. 工业级 Go 源码与详细注释
+
+```go
+// RestoreIpAddresses 复原 IP 地址
+//
+// 核心思想：回溯 + 剪枝
+//
+// 约束条件：
+// 1. 必须恰好有 4 段
+// 2. 每段必须是 0-255
+// 3. 不能有前导零（除非是 "0" 本身）
+//
+// 剪枝策略：
+// - 如果剩余字符数超过 3*(4-len(path))，剪枝
+// - 如果剩余字符数少于 4-len(path)，剪枝
+// - 每一段最多 3 个字符
+//
+// 时间复杂度：O(3^4) = O(1) - 常数级，因为 IP 地址只有 4 段
+// 空间复杂度：O(1)
+func RestoreIpAddresses(s string) []string {
+    var result []string
+    path := []string{}
+
+    var backtrack func(start int)
+    backtrack = func(start int) {
+        // 如果已经有 4 段
+        if len(path) == 4 {
+            // 如果用完了所有字符，找到了一个有效 IP
+            if start == len(s) {
+                result = append(result, strings.Join(path, "."))
+            }
+            return
+        }
+
+        // 尝试每段 1-3 个字符
+        for length := 1; length <= 3; length++ {
+            // 如果超出字符串范围，停止
+            if start+length > len(s) {
+                break
+            }
+
+            // 剪枝：如果剩余字符数不够，停止
+            if len(s)-start < 4-len(path) {
+                break
+            }
+            // 剪枝：如果剩余字符数太多，停止
+            if len(s)-start > 3*(4-len(path)) {
+                break
+            }
+
+            // 获取当前段
+            segment := s[start : start+length]
+
+            // 检查有效性：不能有前导零（除非是 "0" 本身）
+            if length > 1 && segment[0] == '0' {
+                continue
+            }
+
+            // 检查数值是否在 0-255 范围内
+            val := 0
+            for _, c := range segment {
+                val = val*10 + int(c-'0')
+            }
+            if val > 255 {
+                continue
+            }
+
+            // 做选择
+            path = append(path, segment)
+            backtrack(start + length)
+            path = path[:len(path)-1]
+        }
+    }
+
+    backtrack(0)
+    return result
+}
+```
+
+---
+
 ## Problem 79: Word Search 单词搜索
 
 ### 1. 题目核心与隐藏考点
@@ -370,9 +688,9 @@ func backtrack(params) {
 
 | 模式 | 题目 | 特点 |
 | :--- | :--- | :--- |
-| 组合 | 17, 22 | 选择子集 |
-| 排列 | - | 全排列 |
-| 搜索 | 79 | 二维网格 |
+| 组合 | 17, 22, 39 | 选择子集 |
+| 排列 | 46 | 全排列 |
+| 搜索 | 79, 93 | 二维网格/字符串分割 |
 
 ---
 
